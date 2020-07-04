@@ -18,6 +18,7 @@
 package com.android.internal.util.aicp;
 
 import android.app.ActivityManager;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.om.IOverlayManager;
@@ -27,12 +28,19 @@ import android.graphics.Color;
 import android.os.UserHandle;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
+import android.os.UserHandle;
+import android.text.format.Time;
+import android.os.Vibrator;
+import android.provider.MediaStore;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
@@ -46,8 +54,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import static android.content.Context.NOTIFICATION_SERVICE;
+import static android.content.Context.VIBRATOR_SERVICE;
+
 public class AicpUtils {
-    private static OverlayManager mOverlayService;
+    private static OverlayManager sOverlayService;
     /**
      * @hide
      */
@@ -77,6 +88,11 @@ public class AicpUtils {
      * @hide
      */
     public static final String OMNIRECORD_PACKAGE_NAME = "org.omnirom.omnirecord";
+
+    /**
+     * @hide
+     */
+     public static final String INTENT_SHOW_POWER_MENU = "action_handler_show_power_menu";
 
     /**
      * @hide
@@ -204,10 +220,63 @@ public class AicpUtils {
         }
     }
 
+    // Cycle ringer modes
+    public static void toggleRingerModes(Context context) {
+        AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        Vibrator mVibrator = (Vibrator) context.getSystemService(VIBRATOR_SERVICE);
+
+        switch (am.getRingerMode()) {
+            case AudioManager.RINGER_MODE_NORMAL:
+                if (mVibrator.hasVibrator()) {
+                    am.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
+                }
+                break;
+            case AudioManager.RINGER_MODE_VIBRATE:
+                am.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+                NotificationManager notificationManager =
+                        (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
+                notificationManager.setInterruptionFilter(
+                        NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+                break;
+            case AudioManager.RINGER_MODE_SILENT:
+                am.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+                break;
+        }
+    }
+
+    // Power menu
+    public static void showPowerMenu() {
+        IWindowManager wm = WindowManagerGlobal.getWindowManagerService();
+        try {
+            wm.sendCustomAction(new Intent(INTENT_SHOW_POWER_MENU));
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+
     // Check for Chinese language
     public static boolean isChineseLanguage() {
        return Resources.getSystem().getConfiguration().locale.getLanguage().startsWith(
                Locale.CHINESE.getLanguage());
+    }
+
+    // Check if device is connected to the internet
+    public static boolean isConnected(Context context) {
+        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) return false;
+
+        NetworkInfo wifi = cm.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        NetworkInfo mobile = cm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE);
+        return wifi.isConnected() || mobile.isConnected();
+    }
+
+    // Check if device is connected to Wi-Fi
+    public static boolean isWiFiConnected(Context context) {
+        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) return false;
+
+        NetworkInfo wifi = cm.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        return wifi.isConnected();
     }
 
     public static int getBlendColorForPercent(int fullColor, int emptyColor, boolean reversed,
@@ -311,14 +380,24 @@ public class AicpUtils {
         }
     }
 
+    public static boolean shouldShowGestureNav(Context context) {
+        boolean setNavbarHeight = Settings.System.getIntForUser(context.getContentResolver(),
+            Settings.System.GESTURE_NAVBAR_SHOW, 1, UserHandle.USER_CURRENT) != 0;
+        boolean twoThreeButtonEnabled = AicpUtils.isThemeEnabled("com.android.internal.systemui.navbar.twobutton") ||
+                AicpUtils.isThemeEnabled("com.android.internal.systemui.navbar.threebutton");
+        return setNavbarHeight || twoThreeButtonEnabled;
+    }
+
     // Method to detect whether an overlay is enabled or not
     public static boolean isThemeEnabled(String packageName) {
-        mOverlayService = new OverlayManager();
+        if (sOverlayService == null) {
+            sOverlayService = new OverlayManager();
+        }
         try {
             ArrayList<OverlayInfo> infos = new ArrayList<OverlayInfo>();
-            infos.addAll(mOverlayService.getOverlayInfosForTarget("android",
+            infos.addAll(sOverlayService.getOverlayInfosForTarget("android",
                     UserHandle.myUserId()));
-            infos.addAll(mOverlayService.getOverlayInfosForTarget("com.android.systemui",
+            infos.addAll(sOverlayService.getOverlayInfosForTarget("com.android.systemui",
                     UserHandle.myUserId()));
             for (int i = 0, size = infos.size(); i < size; i++) {
                 if (infos.get(i).packageName.equals(packageName)) {
@@ -347,6 +426,51 @@ public class AicpUtils {
         public List<OverlayInfo> getOverlayInfosForTarget(String target, int userId)
                 throws RemoteException {
             return mService.getOverlayInfosForTarget(target, userId);
+        }
+    }
+
+    // Returns today's passed time in Millisecond
+    public static long getTodayMillis() {
+        final long passedMillis;
+        Time time = new Time();
+        time.set(System.currentTimeMillis());
+        passedMillis = ((time.hour * 60 * 60) + (time.minute * 60) + time.second) * 1000;
+        return passedMillis;
+    }
+
+    // Launch camera
+    public static void launchCamera(Context context) {
+        Intent intent = new Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        context.startActivity(intent);
+    }
+
+    // Launch voice search
+    public static void launchVoiceSearch(Context context) {
+        Intent intent = new Intent(Intent.ACTION_SEARCH_LONG_PRESS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+    }
+
+    public static void killForegroundApp() {
+        IStatusBarService service = getStatusBarService();
+        if (service != null) {
+            try {
+                service.killForegroundApp();
+            } catch (RemoteException e) {
+                // do nothing.
+            }
+        }
+    }
+
+    public static void sendSystemKeyToStatusBar(int keyCode) {
+        IStatusBarService service = getStatusBarService();
+        if (service != null) {
+            try {
+                service.handleSystemKey(keyCode);
+            } catch (RemoteException e) {
+                // do nothing.
+            }
         }
     }
 }

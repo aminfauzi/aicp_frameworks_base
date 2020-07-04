@@ -2680,6 +2680,7 @@ public final class Settings {
         @UnsupportedAppUsage
         public static String getStringForUser(ContentResolver resolver, String name,
                 int userHandle) {
+            android.util.SeempLog.record(android.util.SeempLog.getSeempGetApiIdFromValue(name));
             if (MOVED_TO_SECURE.contains(name)) {
                 Log.w(TAG, "Setting " + name + " has moved from android.provider.Settings.System"
                         + " to android.provider.Settings.Secure, returning read-only value.");
@@ -2708,6 +2709,7 @@ public final class Settings {
         @UnsupportedAppUsage
         public static boolean putStringForUser(ContentResolver resolver, String name, String value,
                 int userHandle) {
+            android.util.SeempLog.record(android.util.SeempLog.getSeempPutApiIdFromValue(name));
             if (MOVED_TO_SECURE.contains(name)) {
                 Log.w(TAG, "Setting " + name + " has moved from android.provider.Settings.System"
                         + " to android.provider.Settings.Secure, value is unchanged.");
@@ -6106,16 +6108,18 @@ public final class Settings {
         private static final Validator PULSE_AMBIENT_LIGHT_COLOR_MODE_VALIDATOR = ANY_INTEGER_VALIDATOR;
 
         /**
+         * @hide
+         */
+        public static final String PULSE_AMBIENT_LIGHT_COLOR_AUTOMATIC = "pulse_ambient_light_color_automatic";
+
+        private static final Validator PULSE_AMBIENT_LIGHT_COLOR_AUTOMATIC_VALIDATOR =
+                BOOLEAN_VALIDATOR;
+
+        /**
          * Whether to vibrate on notifications
          * @hide
          */
         public static final String VIBRATE_ON_NOTIFICATIONS = "vibrate_on_notifications";
-
-        /** @hide */
-        public static final String GESTURE_PILL_TOGGLE = "gesture_pill_toggle";
-
-        /** @hide */
-        private static final Validator GESTURE_PILL_TOGGLE_VALIDATOR = BOOLEAN_VALIDATOR;
 
         /**
          * Duration of Ambient edge light in seconds
@@ -6127,6 +6131,15 @@ public final class Settings {
         private static final Validator PULSE_AMBIENT_LIGHT_DURATION_VALIDATOR =
                 ANY_INTEGER_VALIDATOR;
 
+        /**
+         * Width of Ambient edge light in px
+         * @hide
+         */
+        public static final String PULSE_AMBIENT_LIGHT_WIDTH = "pulse_ambient_light_width";
+
+        /** @hide */
+        private static final Validator PULSE_AMBIENT_LIGHT_WIDTH_VALIDATOR =
+                ANY_INTEGER_VALIDATOR;
         /**
          * Whether to blink flashlight for incoming calls
          * 0 = Disabled (Default)
@@ -6325,13 +6338,24 @@ public final class Settings {
 
         /**
          * Number of times to repeat animations of Ambient edge light
-         * 0 is infinite
+         * 0 is never
          * @hide
          */
         public static final String PULSE_AMBIENT_LIGHT_REPEAT_COUNT = "pulse_ambient_light_repeat_count";
 
         /** @hide */
         private static final Validator PULSE_AMBIENT_LIGHT_REPEAT_COUNT_VALIDATOR = ANY_INTEGER_VALIDATOR;
+
+        /**
+         * Direction of repeat animations of Ambient edge light
+         * 0 is restart
+         * 1 is reverse
+         * @hide
+         */
+        public static final String PULSE_AMBIENT_LIGHT_REPEAT_DIRECTION = "pulse_ambient_light_repeat_direction";
+
+        /** @hide */
+        private static final Validator PULSE_AMBIENT_LIGHT_REPEAT_DIRECTION_VALIDATOR = BOOLEAN_VALIDATOR;
 
         /** @hide */
         public static final String BACK_GESTURE_HAPTIC = "back_gesture_haptic";
@@ -6957,6 +6981,161 @@ public final class Settings {
         /** @hide */
         private static final Validator SCREEN_STATE_THREEG_VALIDATOR = BOOLEAN_VALIDATOR;
 
+        /**
+         * Gestures nav: whether show it or hide completely
+         * @hide
+         */
+        public static final String GESTURE_NAVBAR_SHOW = "gesture_navbar_show";
+
+        /** @hide */
+        private static final Validator GESTURE_NAVBAR_SHOW_VALIDATOR = BOOLEAN_VALIDATOR;
+
+        /**
+         * Gestures nav: left long back swipe action
+         * @hide
+         */
+        public static final String LEFT_LONG_BACK_SWIPE_ACTION = "left_long_back_swipe_action";
+
+        /**
+         * Gestures nav: left long back swipe app action
+         * @hide
+         */
+        public static final String LEFT_LONG_BACK_SWIPE_APP_ACTION = "left_long_back_swipe_app_action";
+
+        /**
+         * Display friendly name of custom application launched when
+         * using the long left back swipe app action
+         * @hide
+         */
+        public static final String LEFT_LONG_BACK_SWIPE_APP_FR_ACTION = "left_long_back_swipe_app_fr_action";
+
+        /**
+         * Launch custom activity when using the long left back swipe app action
+         *
+         * @hide
+         */
+        public static final String LEFT_LONG_BACK_SWIPE_APP_ACTIVITY_ACTION = "left_long_back_swipe_app_activity_action";
+
+        /**
+         * Gestures nav: right long back swipe action
+         * @hide
+         */
+        public static final String RIGHT_LONG_BACK_SWIPE_ACTION = "right_long_back_swipe_action";
+
+        /**
+         * Gestures nav: right long back swipe app action
+         * @hide
+         */
+        public static final String RIGHT_LONG_BACK_SWIPE_APP_ACTION = "right_long_back_swipe_app_action";
+
+        /**
+         * Display friendly name of custom application launched when
+         * using the long right back swipe app action
+         * @hide
+         */
+        public static final String RIGHT_LONG_BACK_SWIPE_APP_FR_ACTION = "right_long_back_swipe_app_fr_action";
+
+        /**
+         * Launch custom activity when using the long right back swipe app action
+         *
+         * @hide
+         */
+        public static final String RIGHT_LONG_BACK_SWIPE_APP_ACTIVITY_ACTION = "right_long_back_swipe_app_activity_action";
+
+        /**
+         * Gestures nav: left long back swipe action
+         * @hide
+         */
+        public static final String LEFT_VERTICAL_BACK_SWIPE_ACTION = "left_vertical_back_swipe_action";
+
+        /**
+         * Gestures nav: left long back swipe app action
+         * @hide
+         */
+        public static final String LEFT_VERTICAL_BACK_SWIPE_APP_ACTION = "left_vertical_back_swipe_app_action";
+
+        /**
+         * Display friendly name of custom application launched when
+         * using the long left back swipe app action
+         * @hide
+         */
+        public static final String LEFT_VERTICAL_BACK_SWIPE_APP_FR_ACTION = "left_vertical_back_swipe_app_fr_action";
+
+        /**
+         * Launch custom activity when using the long left back swipe app action
+         *
+         * @hide
+         */
+        public static final String LEFT_VERTICAL_BACK_SWIPE_APP_ACTIVITY_ACTION = "left_vertical_back_swipe_app_activity_action";
+
+        /**
+         * Gestures nav: right long back swipe action
+         * @hide
+         */
+        public static final String RIGHT_VERTICAL_BACK_SWIPE_ACTION = "right_vertical_back_swipe_action";
+
+        /**
+         * Gestures nav: right long back swipe app action
+         * @hide
+         */
+        public static final String RIGHT_VERTICAL_BACK_SWIPE_APP_ACTION = "right_vertical_back_swipe_app_action";
+
+        /**
+         * Display friendly name of custom application launched when
+         * using the long right back swipe app action
+         * @hide
+         */
+        public static final String RIGHT_VERTICAL_BACK_SWIPE_APP_FR_ACTION = "right_vertical_back_swipe_app_fr_action";
+
+        /**
+         * Launch custom activity when using the long right back swipe app action
+         *
+         * @hide
+         */
+        public static final String RIGHT_VERTICAL_BACK_SWIPE_APP_ACTIVITY_ACTION = "right_vertical_back_swipe_app_activity_action";
+
+        /**
+         * Gestures nav: long back swipe timeout
+         * @hide
+         */
+        public static final String LONG_BACK_SWIPE_TIMEOUT = "long_back_swipe_timeout";
+
+        /**
+         * Gestures nav: whether to use extended swipe instead of timeout to trigger custom actions
+         * @hide
+         */
+        public static final String BACK_SWIPE_EXTENDED = "back_swipe_extended";
+
+        /**
+         * Show data usage in QS header
+         * 0 = Disabled
+         * 1 = Show daily usage
+         * 2 = Show monthly usage
+         * @hide
+         */
+        public static final String QS_DATAUSAGE = "qs_datausage";
+
+        /** @hide */
+        private static final Validator QS_DATAUSAGE_VALIDATOR =
+                new SettingsValidators.InclusiveIntegerRangeValidator(0, 2);
+
+        /**
+         * DismissAll Button
+         * @hide
+         */
+        public static final String DISMISS_ALL_BUTTON = "dismiss_all_button";
+
+        /**
+         * Setting to determine whether or not to show the battery percentage in the qs status bar header.
+         *    0 - Show remaining time
+         *    1 - Show percentage
+         * @hide
+         */
+        public static final String QS_SHOW_BATTERY_PERCENT = "qs_header_show_battery_percent";
+
+        /** @hide */
+        private static final Validator QS_SHOW_BATTERY_PERCENT_VALIDATOR = BOOLEAN_VALIDATOR;
+
         /***************************
          * AICP System Settings end
          ***************************/
@@ -6967,12 +7146,6 @@ public final class Settings {
          * it to PRIVATE_SETTINGS below. Also add a validator that can validate
          * the setting value. See an example above.
          */
-
-        /**
-         * DismissAll Button
-         * @hide
-         */
-        public static final String DISMISS_ALL_BUTTON = "dismiss_all_button";
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
@@ -7033,6 +7206,7 @@ public final class Settings {
             NOTIFICATION_SOUND,
             ACCELEROMETER_ROTATION,
             SHOW_BATTERY_PERCENT,
+            QS_SHOW_BATTERY_PERCENT,
             NOTIFICATION_VIBRATION_INTENSITY,
             RING_VIBRATION_INTENSITY,
             HAPTIC_FEEDBACK_INTENSITY,
@@ -7190,12 +7364,13 @@ public final class Settings {
             STATUS_BAR_TICKER_TICK_DURATION,
             PULSE_AMBIENT_LIGHT,
             PULSE_AMBIENT_LIGHT_COLOR,
-            GESTURE_PILL_TOGGLE,
             PULSE_AMBIENT_LIGHT_DURATION,
             FLASHLIGHT_ON_CALL,
             LOCKSCREEN_LOCK_ICON,
             HEADSET_CONNECT_PLAYER,
             PULSE_AMBIENT_LIGHT_COLOR_MODE,
+            PULSE_AMBIENT_LIGHT_COLOR_AUTOMATIC,
+            PULSE_AMBIENT_LIGHT_WIDTH,
             AICP_SHOW_BATTERY_IMAGE,
             GAMING_MODE_ENABLED,
             GAMING_MODE_ACTIVE,
@@ -7211,6 +7386,7 @@ public final class Settings {
             NAVIGATION_BAR_ARROW_KEYS,
             BACK_GESTURE_BLOCK_IME,
             PULSE_AMBIENT_LIGHT_REPEAT_COUNT,
+            PULSE_AMBIENT_LIGHT_REPEAT_DIRECTION,
             OMNI_STATUS_BAR_CUSTOM_HEADER,
             OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW,
             OMNI_STATUS_BAR_DAYLIGHT_HEADER_PACK,
@@ -7235,6 +7411,8 @@ public final class Settings {
             SCREEN_STATE_MOBILE_DATA,
             SCREEN_STATE_TWOG,
             SCREEN_STATE_THREEG,
+            GESTURE_NAVBAR_SHOW,
+            QS_DATAUSAGE,
             // AICP Settings end
         };
 
@@ -7354,6 +7532,7 @@ public final class Settings {
             PRIVATE_SETTINGS.add(LOCK_TO_APP_ENABLED);
             PRIVATE_SETTINGS.add(EGG_MODE);
             PRIVATE_SETTINGS.add(SHOW_BATTERY_PERCENT);
+            PRIVATE_SETTINGS.add(QS_SHOW_BATTERY_PERCENT);
             PRIVATE_SETTINGS.add(DISPLAY_COLOR_MODE);
             // AICP Settings
             PRIVATE_SETTINGS.add(AE_THEME);
@@ -7516,12 +7695,13 @@ public final class Settings {
             PRIVATE_SETTINGS.add(STATUS_BAR_TICKER_TICK_DURATION);
             PRIVATE_SETTINGS.add(PULSE_AMBIENT_LIGHT);
             PRIVATE_SETTINGS.add(PULSE_AMBIENT_LIGHT_COLOR);
-            PRIVATE_SETTINGS.add(GESTURE_PILL_TOGGLE);
             PRIVATE_SETTINGS.add(PULSE_AMBIENT_LIGHT_DURATION);
             PRIVATE_SETTINGS.add(FLASHLIGHT_ON_CALL);
             PRIVATE_SETTINGS.add(LOCKSCREEN_LOCK_ICON);
             PRIVATE_SETTINGS.add(HEADSET_CONNECT_PLAYER);
             PRIVATE_SETTINGS.add(PULSE_AMBIENT_LIGHT_COLOR_MODE);
+            PRIVATE_SETTINGS.add(PULSE_AMBIENT_LIGHT_COLOR_AUTOMATIC);
+            PRIVATE_SETTINGS.add(PULSE_AMBIENT_LIGHT_WIDTH);
             PRIVATE_SETTINGS.add(AICP_SHOW_BATTERY_IMAGE);
             PRIVATE_SETTINGS.add(GAMING_MODE_ENABLED);
             PRIVATE_SETTINGS.add(GAMING_MODE_ACTIVE);
@@ -7537,6 +7717,7 @@ public final class Settings {
             PRIVATE_SETTINGS.add(NAVIGATION_BAR_ARROW_KEYS);
             PRIVATE_SETTINGS.add(BACK_GESTURE_BLOCK_IME);
             PRIVATE_SETTINGS.add(PULSE_AMBIENT_LIGHT_REPEAT_COUNT);
+            PRIVATE_SETTINGS.add(PULSE_AMBIENT_LIGHT_REPEAT_DIRECTION);
             PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_CUSTOM_HEADER);
             PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW);
             PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_DAYLIGHT_HEADER_PACK);
@@ -7584,6 +7765,8 @@ public final class Settings {
             PRIVATE_SETTINGS.add(SCREEN_STATE_MOBILE_DATA);
             PRIVATE_SETTINGS.add(SCREEN_STATE_TWOG);
             PRIVATE_SETTINGS.add(SCREEN_STATE_THREEG);
+            PRIVATE_SETTINGS.add(GESTURE_NAVBAR_SHOW);
+            PRIVATE_SETTINGS.add(QS_DATAUSAGE);
             // AICP Settings end
         }
 
@@ -7677,6 +7860,7 @@ public final class Settings {
             VALIDATORS.put(WIFI_STATIC_DNS1, WIFI_STATIC_DNS1_VALIDATOR);
             VALIDATORS.put(WIFI_STATIC_DNS2, WIFI_STATIC_DNS2_VALIDATOR);
             VALIDATORS.put(SHOW_BATTERY_PERCENT, SHOW_BATTERY_PERCENT_VALIDATOR);
+            VALIDATORS.put(QS_SHOW_BATTERY_PERCENT, QS_SHOW_BATTERY_PERCENT_VALIDATOR);
             VALIDATORS.put(NOTIFICATION_LIGHT_PULSE, BOOLEAN_VALIDATOR);
             // AICP Settings
             VALIDATORS.put(AE_THEME, AE_THEME_VALIDATOR);
@@ -7855,12 +8039,13 @@ public final class Settings {
                     STATUS_BAR_TICKER_TICK_DURATION_VALIDATOR);
             VALIDATORS.put(PULSE_AMBIENT_LIGHT, PULSE_AMBIENT_LIGHT_VALIDATOR);
             VALIDATORS.put(PULSE_AMBIENT_LIGHT_COLOR, PULSE_AMBIENT_LIGHT_COLOR_VALIDATOR);
-            VALIDATORS.put(GESTURE_PILL_TOGGLE, GESTURE_PILL_TOGGLE_VALIDATOR);
             VALIDATORS.put(PULSE_AMBIENT_LIGHT_DURATION, PULSE_AMBIENT_LIGHT_DURATION_VALIDATOR);
             VALIDATORS.put(FLASHLIGHT_ON_CALL, FLASHLIGHT_ON_CALL_VALIDATOR);
             VALIDATORS.put(LOCKSCREEN_LOCK_ICON, LOCKSCREEN_LOCK_ICON_VALIDATOR);
             VALIDATORS.put(HEADSET_CONNECT_PLAYER, HEADSET_CONNECT_PLAYER_VALIDATOR);
             VALIDATORS.put(PULSE_AMBIENT_LIGHT_COLOR_MODE, PULSE_AMBIENT_LIGHT_COLOR_MODE_VALIDATOR);
+            VALIDATORS.put(PULSE_AMBIENT_LIGHT_COLOR_AUTOMATIC, PULSE_AMBIENT_LIGHT_COLOR_AUTOMATIC_VALIDATOR);
+            VALIDATORS.put(PULSE_AMBIENT_LIGHT_WIDTH, PULSE_AMBIENT_LIGHT_WIDTH_VALIDATOR);
             VALIDATORS.put(AICP_SHOW_BATTERY_IMAGE, AICP_SHOW_BATTERY_IMAGE_VALIDATOR);
             VALIDATORS.put(GAMING_MODE_ENABLED, GAMING_MODE_ENABLED_VALIDATOR);
             VALIDATORS.put(GAMING_MODE_ACTIVE, GAMING_MODE_ACTIVE_VALIDATOR);
@@ -7876,7 +8061,10 @@ public final class Settings {
             VALIDATORS.put(NAVIGATION_BAR_ARROW_KEYS,
                     NAVIGATION_BAR_ARROW_KEYS_VALIDATOR);
             VALIDATORS.put(BACK_GESTURE_BLOCK_IME, BACK_GESTURE_BLOCK_IME_VALIDATOR);
-            VALIDATORS.put(PULSE_AMBIENT_LIGHT_REPEAT_COUNT, PULSE_AMBIENT_LIGHT_REPEAT_COUNT_VALIDATOR);
+            VALIDATORS.put(PULSE_AMBIENT_LIGHT_REPEAT_COUNT,
+                    PULSE_AMBIENT_LIGHT_REPEAT_COUNT_VALIDATOR);
+            VALIDATORS.put(PULSE_AMBIENT_LIGHT_REPEAT_DIRECTION,
+                    PULSE_AMBIENT_LIGHT_REPEAT_DIRECTION_VALIDATOR);
             VALIDATORS.put(OMNI_STATUS_BAR_CUSTOM_HEADER,
                     OMNI_STATUS_BAR_CUSTOM_HEADER_VALIDATOR);
             VALIDATORS.put(OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW,
@@ -7920,6 +8108,8 @@ public final class Settings {
             VALIDATORS.put(SCREEN_STATE_MOBILE_DATA, SCREEN_STATE_MOBILE_DATA_VALIDATOR);
             VALIDATORS.put(SCREEN_STATE_TWOG, SCREEN_STATE_TWOG_VALIDATOR);
             VALIDATORS.put(SCREEN_STATE_THREEG, SCREEN_STATE_THREEG_VALIDATOR);
+            VALIDATORS.put(GESTURE_NAVBAR_SHOW,GESTURE_NAVBAR_SHOW_VALIDATOR);
+            VALIDATORS.put(QS_DATAUSAGE, QS_DATAUSAGE_VALIDATOR);
             // AICP Settings end
         }
 
@@ -12411,6 +12601,15 @@ public final class Settings {
         /** @hide */
         private static final Validator KILL_APP_LONGPRESS_BACK_VALIDATOR = BOOLEAN_VALIDATOR;
 
+        /**
+         * Whether tethering is allowed to use VPN upstreams
+         * 0 = false, 1 = true
+         * @hide
+         */
+        public static final String TETHERING_ALLOW_VPN_UPSTREAMS = "tethering_allow_vpn_upstreams";
+        /** @hide */
+        public static final Validator TETHERING_ALLOW_VPN_UPSTREAMS_VALIDATOR = BOOLEAN_VALIDATOR;
+
         /*****************************
          * AICP Secure Settings end
          *****************************/
@@ -12789,6 +12988,7 @@ public final class Settings {
             VALIDATORS.put(FP_SWIPE_TO_DISMISS_NOTIFICATIONS, FP_SWIPE_TO_DISMISS_NOTIFICATIONS_VALIDATOR);
             VALIDATORS.put(STATUS_BAR_BATTERY_STYLE, STATUS_BAR_BATTERY_STYLE_VALIDATOR);
             VALIDATORS.put(KILL_APP_LONGPRESS_BACK, KILL_APP_LONGPRESS_BACK_VALIDATOR);
+            VALIDATORS.put(TETHERING_ALLOW_VPN_UPSTREAMS, TETHERING_ALLOW_VPN_UPSTREAMS_VALIDATOR);
         }
 
         /**

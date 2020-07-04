@@ -158,6 +158,7 @@
     <uses-permission android:name="android.permission.CONFIGURE_WIFI_DISPLAY" />
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.CAMERA_OPEN_CLOSE_LISTENER" />
 
     <!-- Screen Capturing -->
     <uses-permission android:name="android.permission.MANAGE_MEDIA_PROJECTION" />
@@ -268,6 +269,9 @@
     <!-- Reboot -->
     <uses-permission android:name="android.permission.REBOOT" />
     <uses-permission android:name="android.permission.RECOVERY" />
+
+    <!-- Long swipe gesture actions -->
+    <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES" />
 
     <!-- Locale QS -->
     <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
@@ -753,5 +757,44 @@
             </intent-filter>
         </receiver>
 
+        <activity
+            android:name="com.android.systemui.statusbar.phone.LeftBackSwipeCustomApp"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.MinWidth"
+            android:label="@string/app_picker_dialog_title" >
+            <intent-filter>
+                <action android:name="com.android.systemui.statusbar.phone.LeftBackSwipeCustomApp" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.android.systemui.statusbar.phone.RightBackSwipeCustomApp"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.MinWidth"
+            android:label="@string/app_picker_dialog_title" >
+            <intent-filter>
+                <action android:name="com.android.systemui.statusbar.phone.RightBackSwipeCustomApp" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.android.systemui.statusbar.phone.LeftBackVerticalSwipeCustomApp"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.MinWidth"
+            android:label="@string/app_picker_dialog_title" >
+            <intent-filter>
+                <action android:name="com.android.systemui.statusbar.phone.LeftBackVerticalSwipeCustomApp" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.android.systemui.statusbar.phone.RightBackVerticalSwipeCustomApp"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.MinWidth"
+            android:label="@string/app_picker_dialog_title" >
+            <intent-filter>
+                <action android:name="com.android.systemui.statusbar.phone.RightBackVerticalSwipeCustomApp" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

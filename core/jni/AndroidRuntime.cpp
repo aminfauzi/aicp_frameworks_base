@@ -118,6 +118,7 @@ extern int register_android_media_ToneGenerator(JNIEnv *env);
 extern int register_android_media_midi(JNIEnv *env);
 
 namespace android {
+extern int register_android_util_SeempLog(JNIEnv* env);
 
 /*
  * JNI-based registration functions.  Note these are properly contained in
@@ -665,6 +666,8 @@ int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv, bool zygote)
     char dex2oatImageCompilerFilterBuf[sizeof("--compiler-filter=")-1 + PROPERTY_VALUE_MAX];
     char dex2oatThreadsBuf[sizeof("-j")-1 + PROPERTY_VALUE_MAX];
     char dex2oatThreadsImageBuf[sizeof("-j")-1 + PROPERTY_VALUE_MAX];
+    char dex2oatCpuSetBuf[sizeof("--cpu-set=")-1 + PROPERTY_VALUE_MAX];
+    char dex2oatCpuSetImageBuf[sizeof("--cpu-set=")-1 + PROPERTY_VALUE_MAX];
     char dex2oat_isa_variant_key[PROPERTY_KEY_MAX];
     char dex2oat_isa_variant[sizeof("--instruction-set-variant=") -1 + PROPERTY_VALUE_MAX];
     char dex2oat_isa_features_key[PROPERTY_KEY_MAX];
@@ -936,6 +939,10 @@ int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv, bool zygote)
     }
     parseCompilerOption("dalvik.vm.dex2oat-threads", dex2oatThreadsBuf, "-j", "-Xcompiler-option");
     parseCompilerOption("dalvik.vm.image-dex2oat-threads", dex2oatThreadsImageBuf, "-j",
+                        "-Ximage-compiler-option");
+    parseCompilerOption("dalvik.vm.dex2oat-cpu-set", dex2oatCpuSetBuf, "--cpu-set=",
+                        "-Xcompiler-option");
+    parseCompilerOption("dalvik.vm.image-dex2oat-cpu-set", dex2oatCpuSetImageBuf, "--cpu-set=",
                         "-Ximage-compiler-option");
 
     // The runtime will compile a boot image, when necessary, not using installd. Thus, we need to
@@ -1418,6 +1425,7 @@ static int register_jni_procs(const RegJNIRec array[], size_t count, JNIEnv* env
 }
 
 static const RegJNIRec gRegJNI[] = {
+    REG_JNI(register_android_util_SeempLog),
     REG_JNI(register_com_android_internal_os_RuntimeInit),
     REG_JNI(register_com_android_internal_os_ZygoteInit_nativeZygoteInit),
     REG_JNI(register_android_os_SystemClock),

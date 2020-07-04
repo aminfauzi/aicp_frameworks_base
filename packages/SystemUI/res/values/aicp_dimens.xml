@@ -93,6 +93,8 @@
 
     <!-- FOD recognizing animation -->
     <dimen name="fod_animation_size">280dp</dimen>
+    <!-- FOD recognizing animation vertical position offset -->
+    <dimen name="fod_animation_offset">0dp</dimen>
 
     <!-- Custom padding size on biometric dialog -->
     <dimen name="fp_dialog_error_padding_top">16dp</dimen>
@@ -116,7 +118,13 @@
     <dimen name="dismiss_all_button_width">55dp</dimen>
     <dimen name="dismiss_all_fab_src_size">24dp</dimen>
 
-    <dimen name="qs_header_image_offset">25dp</dimen>
+    <dimen name="qs_header_image_offset">0dp</dimen>
     <dimen name="qs_header_image_side_margin">4dp</dimen>
     <dimen name="qs_header_image_bottom_margin">4dp</dimen>
+
+    <!-- Edge light notification width -->
+    <dimen name="left_edgeLightNotificationWidth">125px</dimen>
+    <dimen name="right_edgeLightNotificationWidth">125px</dimen>
+
+    <dimen name="data_usage_padding_start">4dp</dimen>
 </resources>

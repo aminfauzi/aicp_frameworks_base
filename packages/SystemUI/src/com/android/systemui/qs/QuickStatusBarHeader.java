@@ -15,6 +15,7 @@
 package com.android.systemui.qs;
 
 import static android.app.StatusBarManager.DISABLE2_QUICK_SETTINGS;
+import static android.provider.Settings.System.QS_SHOW_BATTERY_PERCENT;
 
 import static com.android.systemui.util.InjectionInflationController.VIEW_CONTEXT;
 
@@ -60,7 +61,9 @@ import android.widget.TextView;
 
 import androidx.annotation.VisibleForTesting;
 
+import com.android.internal.util.aicp.AicpUtils;
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags;
+import com.android.internal.util.aicp.AicpUtils;
 import com.android.internal.util.aicp.FileUtils;
 import com.android.settingslib.Utils;
 import com.android.systemui.BatteryMeterView;
@@ -76,6 +79,7 @@ import com.android.systemui.privacy.PrivacyItem;
 import com.android.systemui.privacy.PrivacyItemController;
 import com.android.systemui.privacy.PrivacyItemControllerKt;
 import com.android.systemui.qs.QSDetail.Callback;
+import com.android.systemui.statusbar.info.DataUsageView;
 import com.android.systemui.statusbar.phone.PhoneStatusBarView;
 import com.android.systemui.statusbar.phone.StatusBarIconController;
 import com.android.systemui.statusbar.phone.StatusBarIconController.TintedIconManager;
@@ -139,6 +143,11 @@ public class QuickStatusBarHeader extends RelativeLayout implements
 
     private int mRingerMode = AudioManager.RINGER_MODE_NORMAL;
     private AlarmManager.AlarmClockInfo mNextAlarm;
+
+    // Data Usage
+    private View mDataUsageLayout;
+    private ImageView mDataUsageImage;
+    private DataUsageView mDataUsageView;
 
     private ImageView mNextAlarmIcon;
     /** {@link TextView} containing the actual text indicating when the next alarm will go off. */
@@ -275,6 +284,13 @@ public class QuickStatusBarHeader extends RelativeLayout implements
         mDateView = findViewById(R.id.date);
         mSpace = findViewById(R.id.space);
         mDateView.setOnClickListener(this);
+        mDataUsageLayout = findViewById(R.id.daily_data_usage_layout);
+        mDataUsageImage = findViewById(R.id.daily_data_usage_icon);
+        mDataUsageView = findViewById(R.id.data_sim_usage);
+
+        updateDataUsageImage();
+        // Set the correct tint for the data usage icons so they contrast
+        mDataUsageImage.setImageTintList(ColorStateList.valueOf(fillColor));
 
         // Tint for the battery icons are handled in setupHost()
         mBatteryRemainingIcon = findViewById(R.id.batteryRemainingIcon);
@@ -282,7 +298,7 @@ public class QuickStatusBarHeader extends RelativeLayout implements
         mBatteryRemainingIcon.setIgnoreTunerUpdates(true);
         // QS will always show the estimate, and BatteryMeterView handles the case where
         // it's unavailable or charging
-        mBatteryRemainingIcon.setPercentShowMode(BatteryMeterView.MODE_ESTIMATE);
+        mBatteryRemainingIcon.setPercentShowMode(getBatteryPercentMode());
         mBatteryRemainingIcon.setQsbHeader();
         mRingerModeTextView.setSelected(true);
         mNextAlarmTextView.setSelected(true);
@@ -293,7 +309,6 @@ public class QuickStatusBarHeader extends RelativeLayout implements
                 mContext.getMainExecutor(), mPropertyListener);
 
         Dependency.get(TunerService.class).addTunable(this,
-                Settings.System.OMNI_STATUS_BAR_CUSTOM_HEADER,
                 StatusBarIconController.ICON_BLACKLIST);
         updateSysInfoResources();
         updateSettings();
@@ -538,7 +553,42 @@ public class QuickStatusBarHeader extends RelativeLayout implements
         updateResources();
         updateSysInfoResources();
         updateSystemInfoText();
+        updateDataUsageView();
+        updateDataUsageImage();
+        setBatteryPercentMode();
         updateStatusbarProperties();
+    }
+
+    private void updateDataUsageView() {
+        if (mDataUsageView.isDataUsageEnabled() != 0) {
+            if (AicpUtils.isConnected(mContext)) {
+                DataUsageView.updateUsage();
+                mDataUsageLayout.setVisibility(View.VISIBLE);
+                mDataUsageImage.setVisibility(View.VISIBLE);
+                mDataUsageView.setVisibility(View.VISIBLE);
+            } else {
+                mDataUsageView.setVisibility(View.GONE);
+                mDataUsageImage.setVisibility(View.GONE);
+                mDataUsageLayout.setVisibility(View.GONE);
+            }
+        } else {
+            mDataUsageView.setVisibility(View.GONE);
+            mDataUsageImage.setVisibility(View.GONE);
+            mDataUsageLayout.setVisibility(View.GONE);
+        }
+    }
+
+    public void updateDataUsageImage() {
+        if (mDataUsageView.isDataUsageEnabled() == 0) {
+            mDataUsageImage.setVisibility(View.GONE);
+        } else {
+            if (AicpUtils.isWiFiConnected(mContext)) {
+                mDataUsageImage.setImageDrawable(mContext.getDrawable(R.drawable.ic_data_usage_wifi));
+            } else {
+                mDataUsageImage.setImageDrawable(mContext.getDrawable(R.drawable.ic_data_usage_cellular));
+            }
+            mDataUsageImage.setVisibility(View.VISIBLE);
+        }
     }
 
     private void updateStatusIconAlphaAnimator() {
@@ -559,6 +609,20 @@ public class QuickStatusBarHeader extends RelativeLayout implements
                 .build();
     }
 
+    private int getBatteryPercentMode() {
+        boolean showBatteryPercent = Settings.System
+                .getIntForUser(getContext().getContentResolver(),
+                QS_SHOW_BATTERY_PERCENT, 0, UserHandle.USER_CURRENT) == 1;
+        int batteryMode = showBatteryPercent ?
+               BatteryMeterView.MODE_ON : BatteryMeterView.MODE_ESTIMATE;
+
+        return batteryMode;
+    }
+
+    private void setBatteryPercentMode() {
+        mBatteryRemainingIcon.setPercentShowMode(getBatteryPercentMode(), true);
+    }
+
     public void setExpanded(boolean expanded) {
         if (mExpanded == expanded) return;
         mExpanded = expanded;
@@ -566,6 +630,7 @@ public class QuickStatusBarHeader extends RelativeLayout implements
         mDateView.setVisibility(mClockView.isClockDateEnabled() ? View.INVISIBLE : View.VISIBLE);
         updateSystemInfoText();
         updateEverything();
+        updateDataUsageView();
     }
 
     /**
@@ -634,10 +699,15 @@ public class QuickStatusBarHeader extends RelativeLayout implements
                 cutout, getDisplay());
         if (padding == null) {
             mSystemIconsView.setPaddingRelative(
-                    getResources().getDimensionPixelSize(R.dimen.status_bar_padding_start), 0,
-                    getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end), 0);
+                    getResources().getDimensionPixelSize(R.dimen.status_bar_padding_start),
+                    getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top),
+                    getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end),
+                    0);
         } else {
-            mSystemIconsView.setPadding(padding.first, 0, padding.second, 0);
+            mSystemIconsView.setPadding(
+                    padding.first,
+                    getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top),
+                    padding.second, 0);
 
         }
         LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) mSpace.getLayoutParams();
@@ -812,8 +882,6 @@ public class QuickStatusBarHeader extends RelativeLayout implements
         } else if (StatusBarIconController.ICON_BLACKLIST.equals(key)) {
             mClockView.setClockVisibleByUser(!StatusBarIconController.getIconBlacklist(newValue)
                     .contains("clock"));
-        } else if (Settings.System.OMNI_STATUS_BAR_CUSTOM_HEADER.equals(key)) {
-            updateSettings();
         }
     }
 

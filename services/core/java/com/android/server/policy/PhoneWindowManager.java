@@ -6702,6 +6702,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 mHandler.removeCallbacks(mScreenshotRunnable);
                 mScreenshotRunnable.setScreenshotType(TAKE_SCREENSHOT_SELECTED_REGION);
                 mHandler.post(mScreenshotRunnable);
+            } else if (AicpUtils.INTENT_SHOW_POWER_MENU.equals(action)) {
+                showGlobalActions();
             }
         }
     }
@@ -7351,6 +7353,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             case NavbarUtilities.KEY_ACTION_RINGER_MODES:
                 toggleRingerModes();
                 break;
+            case NavbarUtilities.KEY_ACTION_KILL_APP:
+                AicpUtils.killForegroundApp();
+                break;
+            case NavbarUtilities.KEY_ACTION_SKIP_TRACK:
+                AicpUtils.sendSystemKeyToStatusBar(KeyEvent.KEYCODE_MEDIA_NEXT);
+                break;
+            case NavbarUtilities.KEY_ACTION_PREVIOUS_TRACK:
+                AicpUtils.sendSystemKeyToStatusBar(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+                break;
         }
     }
 
@@ -7436,6 +7447,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 break;
             case NavbarUtilities.KEY_ACTION_RINGER_MODES:
                 toggleRingerModes();
+                break;
+            case NavbarUtilities.KEY_ACTION_KILL_APP:
+                AicpUtils.killForegroundApp();
+                break;
+            case NavbarUtilities.KEY_ACTION_SKIP_TRACK:
+                AicpUtils.sendSystemKeyToStatusBar(KeyEvent.KEYCODE_MEDIA_NEXT);
+                break;
+            case NavbarUtilities.KEY_ACTION_PREVIOUS_TRACK:
+                AicpUtils.sendSystemKeyToStatusBar(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
                 break;
         }
     }

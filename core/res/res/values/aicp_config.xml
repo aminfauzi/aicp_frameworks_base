@@ -150,9 +150,6 @@
     <integer name="config_sysCPUTempMultiplier">1</integer>
     <integer name="config_sysBatteryTempMultiplier">1</integer>
 
-    <!-- Whether to send camera status intent -->
-    <bool name="config_sendCameraStatusIntent">false</bool>
-
     <!-- Whether to cleanup fingerprints upon connection to the daemon and when user switches -->
     <bool name="config_cleanupUnusedFingerprints">true</bool>
 
@@ -162,9 +159,6 @@
 
     <!-- Whether to show a custom view for FOD -->
     <bool name="config_needCustomFODView">false</bool>
-
-    <!-- Whether to use scaled brightness (set -1 to disable) -->
-    <integer name="config_useScaleBrightness">-1</integer>
 
     <!-- True if the notification's should dynamically tint the app icon and text -->
     <bool name="config_allowNotificationIconTextTinting">true</bool>
@@ -221,6 +215,9 @@
           15 - Power menu
           16 - QS panel
           17 - Ringer modes
+          19 - Kill app
+          20- Skip music track
+          21 - Previous music track
        This needs to match the constants in
        services/core/java/com/android/server/policy/PhoneWindowManager.java -->
     <integer name="config_longPressOnHomeKeyBehavior">3</integer>

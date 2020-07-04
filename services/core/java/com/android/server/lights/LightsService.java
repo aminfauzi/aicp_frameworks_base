@@ -38,7 +38,6 @@ public class LightsService extends SystemService {
 
         private final IBinder mDisplayToken;
         private final int mSurfaceControlMaximumBrightness;
-	private final int mUseScaleBrightness;
 
         private LightImpl(Context context, int id) {
             mId = id;
@@ -56,7 +55,6 @@ public class LightsService extends SystemService {
                 }
             }
             mSurfaceControlMaximumBrightness = maximumBrightness;
-            mUseScaleBrightness = context.getResources().getInteger(com.android.internal.R.integer.config_useScaleBrightness);
         }
 
         @Override
@@ -77,6 +75,7 @@ public class LightsService extends SystemService {
                 // right now we just fall back to the old path through Lights brightessMode is
                 // anything but USER or the device shouldBeInLowPersistenceMode().
                 if (brightnessMode == BRIGHTNESS_MODE_USER && !shouldBeInLowPersistenceMode()
+                        && mId == LightsManager.LIGHT_ID_BACKLIGHT
                         && mSurfaceControlMaximumBrightness == 255) {
                     // TODO: the last check should be mSurfaceControlMaximumBrightness != 0; the
                     // reason we enforce 255 right now is to stay consistent with the old path. In
@@ -89,17 +88,9 @@ public class LightsService extends SystemService {
                     SurfaceControl.setDisplayBrightness(mDisplayToken,
                             (float) brightness / mSurfaceControlMaximumBrightness);
                 } else {
-                    if (mUseScaleBrightness == -1){
-                        int color = brightness & 0x000000ff;
-                        color = 0xff000000 | (color << 16) | (color << 8) | color;
-
-                        setLightLocked(color, LIGHT_FLASH_NONE, 0, 0, brightnessMode);
-
-                    }else{
-
-                        setLightLocked(brightness * mUseScaleBrightness / 255, LIGHT_FLASH_NONE, 0, 0, brightnessMode);
-
-                    }
+                    int color = brightness & 0x000000ff;
+                    color = 0xff000000 | (color << 16) | (color << 8) | color;
+                    setLightLocked(color, LIGHT_FLASH_NONE, 0, 0, brightnessMode);
                 }
             }
         }

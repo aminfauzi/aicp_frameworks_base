@@ -702,6 +702,33 @@ public final class CameraManager {
         public void onCameraAccessPrioritiesChanged() {
             // default empty implementation
         }
+
+        /**
+         * A camera device has been opened by an application.
+         *
+         * <p>The default implementation of this method does nothing.</p>
+         *
+         * @param cameraId The unique identifier of the new camera.
+         * @param packageId The package Id of the application opening the camera.
+         *
+         * @see #onCameraClosed
+         */
+        /** @hide */
+        public void onCameraOpened(@NonNull String cameraId, @NonNull String packageId) {
+            // default empty implementation
+        }
+
+        /**
+         * A previously-opened camera has been closed.
+         *
+         * <p>The default implementation of this method does nothing.</p>
+         *
+         * @param cameraId The unique identifier of the closed camera.
+         */
+        /** @hide */
+        public void onCameraClosed(@NonNull String cameraId) {
+            // default empty implementation
+        }
     }
 
     /**
@@ -1007,9 +1034,10 @@ public final class CameraManager {
                 // Try to make sure we have an up-to-date list of camera devices.
                 connectCameraServiceLocked();
 
+                boolean exposeAuxCamera = Camera.shouldExposeAuxCamera();
                 int idCount = 0;
                 for (int i = 0; i < mDeviceStatus.size(); i++) {
-                    if ((i == 2) && !Camera.shouldExposeAuxCamera()) break;
+                    if (!exposeAuxCamera && i == 2) break;
                     int status = mDeviceStatus.valueAt(i);
                     if (status == ICameraServiceListener.STATUS_NOT_PRESENT ||
                             status == ICameraServiceListener.STATUS_ENUMERATING) continue;
@@ -1018,7 +1046,7 @@ public final class CameraManager {
                 cameraIds = new String[idCount];
                 idCount = 0;
                 for (int i = 0; i < mDeviceStatus.size(); i++) {
-                    if ((i == 2) && !Camera.shouldExposeAuxCamera()) break;
+                    if (!exposeAuxCamera && i == 2) break;
                     int status = mDeviceStatus.valueAt(i);
                     if (status == ICameraServiceListener.STATUS_NOT_PRESENT ||
                             status == ICameraServiceListener.STATUS_ENUMERATING) continue;
@@ -1142,6 +1170,38 @@ public final class CameraManager {
             }
         }
 
+        private void postSingleCameraOpenedUpdate(final AvailabilityCallback callback,
+                final Executor executor, final String id, final String packageId) {
+            final long ident = Binder.clearCallingIdentity();
+            try {
+                executor.execute(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onCameraOpened(id, packageId);
+                        }
+                    });
+            } finally {
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+
+        private void postSingleCameraClosedUpdate(final AvailabilityCallback callback,
+                final Executor executor, final String id) {
+            final long ident = Binder.clearCallingIdentity();
+            try {
+                executor.execute(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onCameraClosed(id);
+                        }
+                    });
+            } finally {
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+
         private void postSingleUpdate(final AvailabilityCallback callback, final Executor executor,
                 final String id, final int status) {
             if (isAvailable(status)) {
@@ -1216,14 +1276,9 @@ public final class CameraManager {
         }
 
         private void onStatusChangedLocked(int status, String id) {
-            /* Force to ignore the last mono/aux camera status update
-             * if the package name does not falls in this bucket
-             */
-            if (!Camera.shouldExposeAuxCamera()) {
-                if (Integer.parseInt(id) >= 2) {
-                    Log.w(TAG, "[soar.cts] ignore the status update of camera: " + id);
-                    return;
-                }
+            if (!Camera.shouldExposeAuxCamera() && Integer.parseInt(id) >= 2) {
+                Log.w(TAG, "[soar.cts] ignore the status update of camera: " + id);
+                return;
             }
 
             if (DEBUG) {
@@ -1410,6 +1465,32 @@ public final class CameraManager {
                     final AvailabilityCallback callback = mCallbackMap.keyAt(i);
 
                     postSingleAccessPriorityChangeUpdate(callback, executor);
+                }
+            }
+        }
+
+        @Override
+        public void onCameraOpened(String cameraId, String clientPackageId) {
+            synchronized (mLock) {
+                final int callbackCount = mCallbackMap.size();
+                for (int i = 0; i < callbackCount; i++) {
+                    Executor executor = mCallbackMap.valueAt(i);
+                    final AvailabilityCallback callback = mCallbackMap.keyAt(i);
+
+                    postSingleCameraOpenedUpdate(callback, executor, cameraId, clientPackageId);
+                }
+            }
+        }
+
+        @Override
+        public void onCameraClosed(String cameraId) {
+            synchronized (mLock) {
+                final int callbackCount = mCallbackMap.size();
+                for (int i = 0; i < callbackCount; i++) {
+                    Executor executor = mCallbackMap.valueAt(i);
+                    final AvailabilityCallback callback = mCallbackMap.keyAt(i);
+
+                    postSingleCameraClosedUpdate(callback, executor, cameraId);
                 }
             }
         }

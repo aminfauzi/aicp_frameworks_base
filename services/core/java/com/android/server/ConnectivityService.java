@@ -29,6 +29,7 @@ import static android.net.ConnectivityManager.isNetworkTypeValid;
 import static android.net.INetworkMonitor.NETWORK_VALIDATION_RESULT_PARTIAL;
 import static android.net.INetworkMonitor.NETWORK_VALIDATION_RESULT_VALID;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_EIMS;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_FOREGROUND;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED;
@@ -106,6 +107,7 @@ import android.net.PrivateDnsConfigParcel;
 import android.net.ProxyInfo;
 import android.net.RouteInfo;
 import android.net.SocketKeepalive;
+import android.net.StringNetworkSpecifier;
 import android.net.UidRange;
 import android.net.Uri;
 import android.net.VpnService;
@@ -118,6 +120,7 @@ import android.net.util.NetdService;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.FileUtils;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -142,6 +145,8 @@ import android.os.UserManager;
 import android.provider.Settings;
 import android.security.Credentials;
 import android.security.KeyStore;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.ArraySet;
@@ -329,6 +334,8 @@ public class ConnectivityService extends IConnectivityManager.Stub
     private final Object mTNSLock = new Object();
 
     private String mCurrentTcpBufferSizes;
+    private int mCurrentTcpDelayedAckSegments;
+    private int mCurrentTcpUserCfg;
 
     private static final SparseArray<String> sMagicDecoderRing = MessageUtils.findMessageNames(
             new Class[] { AsyncChannel.class, ConnectivityService.class, NetworkAgent.class,
@@ -582,6 +589,7 @@ public class ConnectivityService extends IConnectivityManager.Stub
     private List mProtectedNetworks;
 
     private TelephonyManager mTelephonyManager;
+    private SubscriptionManager mSubscriptionManager;
 
     private KeepaliveTracker mKeepaliveTracker;
     private NetworkNotificationManager mNotifier;
@@ -887,6 +895,7 @@ public class ConnectivityService extends IConnectivityManager.Stub
         mNetd = netd;
         mKeyStore = KeyStore.getInstance();
         mTelephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+        mSubscriptionManager = SubscriptionManager.from(mContext);
 
         // To ensure uid rules are synchronized with Network Policy, register for
         // NetworkPolicyManagerService events must happen prior to NetworkPolicyManagerService
@@ -2284,6 +2293,35 @@ public class ConnectivityService extends IConnectivityManager.Stub
         }
     }
 
+    private void updateTcpDelayedAck(NetworkAgentInfo nai) {
+        if (isDefaultNetwork(nai) == false) {
+            return;
+        }
+
+        int segments = nai.linkProperties.getTcpDelayedAckSegments();
+        int usercfg = nai.linkProperties.getTcpUserCfg();
+
+        if (segments != mCurrentTcpDelayedAckSegments) {
+            try {
+                FileUtils.stringToFile("/sys/kernel/ipv4/tcp_delack_seg",
+                        String.valueOf(segments));
+                mCurrentTcpDelayedAckSegments = segments;
+            } catch (IOException e) {
+                // optional
+            }
+        }
+
+        if (usercfg != mCurrentTcpUserCfg) {
+            try {
+                FileUtils.stringToFile("/sys/kernel/ipv4/tcp_use_usercfg",
+                        String.valueOf(usercfg));
+                mCurrentTcpUserCfg = usercfg;
+            } catch (IOException e) {
+                // optional
+            }
+        }
+    }
+
     @Override
     public int getRestoreDefaultNetworkDelay(int networkType) {
         String restoreDefaultNetworkDelayStr = mSystemProperties.get(
@@ -3186,9 +3224,18 @@ public class ConnectivityService extends IConnectivityManager.Stub
                 return true;
         }
 
-        if (!nai.everConnected || nai.isVPN() || nai.isLingering() || numRequests > 0) {
+        if (!nai.everConnected || nai.isVPN() || numRequests > 0) {
             return false;
         }
+
+        if (nai.isLingering()) {
+            if (satisfiesMobileNetworkDataCheck(nai.networkCapabilities)) {
+                return false;
+            } else {
+                nai.clearLingerState();
+            }
+        }
+
         for (NetworkRequestInfo nri : mNetworkRequests.values()) {
             if (reason == UnneededFor.LINGER && nri.request.isBackgroundRequest()) {
                 // Background requests don't affect lingering.
@@ -3197,8 +3244,10 @@ public class ConnectivityService extends IConnectivityManager.Stub
 
             // If this Network is already the highest scoring Network for a request, or if
             // there is hope for it to become one if it validated, then it is needed.
-            if (nri.request.isRequest() && nai.satisfies(nri.request) &&
-                    (nai.isSatisfyingRequest(nri.request.requestId) ||
+            if (nri.request.isRequest() && nai.satisfies(nri.request)
+                    && satisfiesMobileMultiNetworkDataCheck(nai.networkCapabilities,
+                       nri.request.networkCapabilities)
+                    && (nai.isSatisfyingRequest(nri.request.requestId) ||
                     // Note that this catches two important cases:
                     // 1. Unvalidated cellular will not be reaped when unvalidated WiFi
                     //    is currently satisfying the request.  This is desirable when
@@ -4334,6 +4383,26 @@ public class ConnectivityService extends IConnectivityManager.Stub
             throwIfLockdownEnabled();
             return mVpns.get(user).establish(config);
         }
+    }
+
+    @Override
+    public VpnProfile[] getAllLegacyVpns() {
+        enforceConnectivityInternalPermission();
+
+        final ArrayList<VpnProfile> result = new ArrayList<>();
+        final long token = Binder.clearCallingIdentity();
+        try {
+            for (String key : mKeyStore.list(Credentials.VPN)) {
+                final VpnProfile profile = VpnProfile.decode(key,
+                        mKeyStore.get(Credentials.VPN + key));
+                if (profile != null) {
+                    result.add(profile);
+                }
+            }
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+        return result.toArray(new VpnProfile[result.size()]);
     }
 
     /**
@@ -5555,7 +5624,7 @@ public class ConnectivityService extends IConnectivityManager.Stub
         if (isDefaultNetwork(networkAgent)) {
             updateTcpBufferSizes(newLp.getTcpBufferSizes());
         }
-
+        updateTcpDelayedAck(networkAgent);
         updateRoutes(newLp, oldLp, netId);
         updateDnses(newLp, oldLp, netId);
         // Make sure LinkProperties represents the latest private DNS status.
@@ -6148,6 +6217,7 @@ public class ConnectivityService extends IConnectivityManager.Stub
         notifyLockdownVpn(newNetwork);
         handleApplyDefaultProxy(newNetwork.linkProperties.getHttpProxy());
         updateTcpBufferSizes(newNetwork.linkProperties.getTcpBufferSizes());
+        updateTcpDelayedAck(newNetwork);
         mDnsManager.setDefaultDnsSystemProperties(newNetwork.linkProperties.getDnsServers());
         notifyIfacesChangedForNetworkStats();
         // Fix up the NetworkCapabilities of any VPNs that don't specify underlying networks.
@@ -6233,7 +6303,15 @@ public class ConnectivityService extends IConnectivityManager.Stub
 
             final NetworkAgentInfo currentNetwork = getNetworkForRequest(nri.request.requestId);
             final boolean satisfies = newNetwork.satisfies(nri.request);
-            if (newNetwork == currentNetwork && satisfies) {
+            boolean satisfiesMobileMultiNetworkCheck = false;
+
+            if (satisfies) {
+                satisfiesMobileMultiNetworkCheck = satisfiesMobileMultiNetworkDataCheck(
+                        newNetwork.networkCapabilities,
+                        nri.request.networkCapabilities);
+            }
+
+            if (newNetwork == currentNetwork && satisfiesMobileMultiNetworkCheck) {
                 if (VDBG) {
                     log("Network " + newNetwork.name() + " was already satisfying" +
                             " request " + nri.request.requestId + ". No change.");
@@ -6244,7 +6322,7 @@ public class ConnectivityService extends IConnectivityManager.Stub
 
             // check if it satisfies the NetworkCapabilities
             if (VDBG) log("  checking if request is satisfied: " + nri.request);
-            if (satisfies) {
+            if (satisfiesMobileMultiNetworkCheck) {
                 // next check if it's better than any current network we're using for
                 // this request
                 if (VDBG || DDBG) {
@@ -6252,7 +6330,13 @@ public class ConnectivityService extends IConnectivityManager.Stub
                             (currentNetwork != null ? currentNetwork.getCurrentScore() : 0) +
                             ", newScore = " + score);
                 }
-                if (currentNetwork == null || currentNetwork.getCurrentScore() < score) {
+                if (currentNetwork == null ||
+                    isBestMobileMultiNetwork(currentNetwork,
+                          currentNetwork.networkCapabilities,
+                          newNetwork,
+                          newNetwork.networkCapabilities,
+                          nri.request.networkCapabilities) ||
+                    currentNetwork.getCurrentScore() < score) {
                     if (VDBG) log("rematch for " + newNetwork.name());
                     if (currentNetwork != null) {
                         if (VDBG || DDBG){
@@ -7181,5 +7265,68 @@ public class ConnectivityService extends IConnectivityManager.Stub
 
             return mTNS;
         }
+    }
+
+    private boolean isMobileNetwork(NetworkAgentInfo nai) {
+        if (nai != null && nai.networkCapabilities != null &&
+            nai.networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean satisfiesMobileNetworkDataCheck(NetworkCapabilities agentNc) {
+        if (agentNc != null && agentNc.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+            if((agentNc.hasCapability(NET_CAPABILITY_EIMS) &&
+                 (mSubscriptionManager != null &&
+                  (mSubscriptionManager.getActiveSubscriptionInfoList() == null ||
+                   mSubscriptionManager.getActiveSubscriptionInfoList().size()==0))) ||
+               (getIntSpecifier(agentNc.getNetworkSpecifier()) == SubscriptionManager
+                                    .getDefaultDataSubscriptionId())) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean satisfiesMobileMultiNetworkDataCheck(NetworkCapabilities agentNc,
+            NetworkCapabilities requestNc) {
+        if (requestNc != null && getIntSpecifier(requestNc.getNetworkSpecifier()) < 0) {
+            return satisfiesMobileNetworkDataCheck(agentNc);
+        }
+        return true;
+    }
+
+    private int getIntSpecifier(NetworkSpecifier networkSpecifierObj) {
+        String specifierStr = null;
+        int specifier = -1;
+        if (networkSpecifierObj != null
+                && networkSpecifierObj instanceof StringNetworkSpecifier) {
+            specifierStr = ((StringNetworkSpecifier) networkSpecifierObj).specifier;
+        }
+        if (specifierStr != null &&  specifierStr.isEmpty() == false) {
+            try {
+                specifier = Integer.parseInt(specifierStr);
+            } catch (NumberFormatException e) {
+                specifier = -1;
+            }
+        }
+        return specifier;
+    }
+
+    private boolean isBestMobileMultiNetwork(NetworkAgentInfo currentNetwork,
+            NetworkCapabilities currentRequestNc,
+            NetworkAgentInfo newNetwork,
+            NetworkCapabilities newRequestNc,
+            NetworkCapabilities requestNc) {
+        if (isMobileNetwork(currentNetwork) &&
+            isMobileNetwork(newNetwork) &&
+            satisfiesMobileMultiNetworkDataCheck(newRequestNc, requestNc) &&
+            !satisfiesMobileMultiNetworkDataCheck(currentRequestNc, requestNc)) {
+            return true;
+        }
+        return false;
     }
 }

@@ -280,6 +280,23 @@ public class Camera {
     private static final int CAMERA_FACE_DETECTION_SW = 1;
 
     /**
+     * @hide
+     */
+    public static boolean shouldExposeAuxCamera() {
+        /**
+         * Force to expose only two cameras
+         * if the package name does not falls in this bucket
+         */
+        String packageName = ActivityThread.currentOpPackageName();
+        List<String> packageList = Arrays.asList(
+                SystemProperties.get("vendor.camera.aux.packagelist", packageName).split(","));
+        List<String> packageBlacklist = Arrays.asList(
+                SystemProperties.get("vendor.camera.aux.packageblacklist", "").split(","));
+
+        return packageList.contains(packageName) && !packageBlacklist.contains(packageName);
+    }
+
+    /**
      * Returns the number of physical cameras available on this device.
      * The return value of this method might change dynamically if the device
      * supports external cameras and an external camera is connected or
@@ -295,51 +312,19 @@ public class Camera {
      *   cameras or an error was encountered enumerating them.
      */
     public static int getNumberOfCameras() {
-        /* Force to expose only two cameras
-         * if the package name does not falls in this bucket
-         */
-        int numberOfCameras = native_getNumberOfCameras();
-        if ((numberOfCameras > 2) && !shouldExposeAuxCamera()) {
+        int numberOfCameras = _getNumberOfCameras();
+        if (!shouldExposeAuxCamera() && numberOfCameras > 2) {
             numberOfCameras = 2;
         }
         return numberOfCameras;
     }
 
     /**
-     * Wether to expose Aux cameras
-     */
-    /** @hide */
-    public static boolean shouldExposeAuxCamera() {
-        String packageName = ActivityThread.currentOpPackageName();
-        // This should be .packagewhitelist but we shouldn't change qualcomm's default
-        String packageList = SystemProperties.get("vendor.camera.aux.packagelist");
-        String packageBlacklist = SystemProperties.get("vendor.camera.aux.packageblacklist");
-        if (packageList.length() > 0) {
-            TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
-            splitter.setString(packageList);
-            for (String str : splitter) {
-                if (packageName.equals(str)) {
-                    return true;
-                }
-            }
-            return false;
-        } else if (packageBlacklist.length() > 0) {
-            TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
-            splitter.setString(packageBlacklist);
-            for (String str : splitter) {
-                if (packageName.equals(str)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    /**
      * Returns the number of physical cameras available on this device.
+     *
+     * @hide
      */
-    /** @hide */
-    public native static int native_getNumberOfCameras();
+    public native static int _getNumberOfCameras();
 
     /**
      * Returns the information about a particular camera.
@@ -353,11 +338,7 @@ public class Camera {
         if (cameraId >= getNumberOfCameras()) {
             throw new RuntimeException("Unknown camera ID");
         }
-        try {
-            _getCameraInfo(cameraId, cameraInfo);
-        } catch (RuntimeException e) {
-            Log.e(TAG, "Lock screen is disabled, facelock can't get camera info");
-        }
+        _getCameraInfo(cameraId, cameraInfo);
         IBinder b = ServiceManager.getService(Context.AUDIO_SERVICE);
         IAudioService audioService = IAudioService.Stub.asInterface(b);
         try {
@@ -966,6 +947,7 @@ public class Camera {
      * @see android.media.MediaActionSound
      */
     public final void setPreviewCallback(PreviewCallback cb) {
+        android.util.SeempLog.record(66);
         mPreviewCallback = cb;
         mOneShot = false;
         mWithBuffer = false;
@@ -994,6 +976,7 @@ public class Camera {
      * @see android.media.MediaActionSound
      */
     public final void setOneShotPreviewCallback(PreviewCallback cb) {
+        android.util.SeempLog.record(68);
         mPreviewCallback = cb;
         mOneShot = true;
         mWithBuffer = false;
@@ -1034,6 +1017,7 @@ public class Camera {
      * @see android.media.MediaActionSound
      */
     public final void setPreviewCallbackWithBuffer(PreviewCallback cb) {
+        android.util.SeempLog.record(67);
         mPreviewCallback = cb;
         mOneShot = false;
         mWithBuffer = true;
@@ -1615,6 +1599,7 @@ public class Camera {
      */
     public final void takePicture(ShutterCallback shutter, PictureCallback raw,
             PictureCallback jpeg) {
+        android.util.SeempLog.record(65);
         takePicture(shutter, raw, null, jpeg);
     }
     private native final void native_takePicture(int msgType);
@@ -1653,6 +1638,7 @@ public class Camera {
      */
     public final void takePicture(ShutterCallback shutter, PictureCallback raw,
             PictureCallback postview, PictureCallback jpeg) {
+        android.util.SeempLog.record(65);
         mShutterCallback = shutter;
         mRawImageCallback = raw;
         mPostviewCallback = postview;
